@@ -1,5 +1,5 @@
 # Alpine 3.11 contains Python 3.8, pyspark only supports Python up to 3.7
-FROM alpine:3.10.4
+FROM hub.docker.prod.walmart.com/library/alpine:3.10.4
 
 # curl and unzip: download and extract Hive, Hadoop, Spark etc.
 # bash: Hadoop is not compatible with Alpine's `ash` shell
@@ -66,7 +66,7 @@ RUN curl --progress-bar -L --retry 3 \
 # Livy attempts to load it though, and will throw
 # java.lang.ClassNotFoundException: org.apache.spark.sql.hive.HiveContext
 ARG SCALA_VERSION=2.11
-RUN curl --progress-bar -L \
+RUN curl --progress-bar -L -k \
     "https://repo1.maven.org/maven2/org/apache/spark/spark-hive_${SCALA_VERSION}/${SPARK_VERSION}/spark-hive_${SCALA_VERSION}-${SPARK_VERSION}.jar" \
     --output "${SPARK_HOME}/jars/spark-hive_${SCALA_VERSION}-${SPARK_VERSION}.jar"
 
@@ -134,11 +134,13 @@ COPY conf/spark/spark-defaults.conf "${SPARK_CONF_DIR}"/
 
 # Spark with Hive
 # TODO enable in Spark 3.0
-#ENV SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HIVE_HOME/lib/*
-#COPY conf/hive/hive-site.xml $SPARK_CONF_DIR/
-#RUN ln -s $SPARK_HOME/jars/scala-library-*.jar $HIVE_HOME/lib \
-#    && ln -s $SPARK_HOME/jars/spark-core_*.jar $HIVE_HOME/lib \
-#    && ln -s $SPARK_HOME/jars/spark-network-common_*.jar $HIVE_HOME/lib
+ENV HIVE_AUX_JARS_PATH=${SPARK_HOME}/jars/*
+ENV SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HIVE_HOME/lib/*
+COPY conf/hive/hive-site.xml $SPARK_CONF_DIR/
+COPY conf/spark/spark-defaults.conf "${HIVE_CONF_DIR}"/
+RUN ln -s $SPARK_HOME/jars/scala-library-*.jar $HIVE_HOME/lib \
+    && ln -s $SPARK_HOME/jars/spark-core_*.jar $HIVE_HOME/lib \
+    && ln -s $SPARK_HOME/jars/spark-network-common_*.jar $HIVE_HOME/lib
 
 # Clean up
 RUN rm -rf "${HIVE_HOME}/examples" \
